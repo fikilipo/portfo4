@@ -1,0 +1,561 @@
+/* =========================================================
+   THE AMAZING DIGITAL CIRCUS — IMMERSION SITE
+   index.css
+   Чистый CSS3: переменные, Grid/Flex, @keyframes, фильтры,
+   clip-path, mix-blend-mode, radial/linear градиенты.
+   ========================================================= */
+
+/* -----------------------------
+   0. ROOT / TOKENS
+   ----------------------------- */
+:root {
+  /* "Бездна" — глубокий чёрный фон */
+  --void:        #050008;
+  --void-2:      #0d0019;
+
+  /* Цирковая палитра */
+  --circus-red:  #ff1f3d;
+  --circus-white:#ffffff;
+  --acid-yellow: #ffd60a;
+  --neon-pink:   #ff2bd6;
+  --deep-blue:   #2b6bff;
+  --toxic-green: #8aff2b;
+  --warning:     #ff3b6e;
+
+  /* RGB-split тени */
+  --rgb-r: 0 0 0 #ff003c;
+  --rgb-b: 0 0 0 #00d0ff;
+
+  /* Геометрия */
+  --maxw:  1280px;
+  --gap:   clamp(16px, 2vw, 28px);
+
+  /* Анимация */
+  --ease-soft: cubic-bezier(.2,.7,.2,1);
+}
+
+/* -----------------------------
+   1. RESET / BASE
+   ----------------------------- */
+*,
+*::before,
+*::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--void);
+  color: var(--circus-white);
+  font-family: "Comic Neue", "Comic Sans MS", system-ui, sans-serif;
+  font-size: clamp(15px, 1vw + 0.6rem, 18px);
+  line-height: 1.5;
+  overflow-x: hidden;
+  /* Палитра "Бездны" — мягкое радиальное свечение */
+  background:
+    radial-gradient(1200px 800px at 50% -10%,  rgba(255,43,214,.12), transparent 60%),
+    radial-gradient(900px 700px at 90% 110%,   rgba(43,107,255,.10), transparent 60%),
+    radial-gradient(900px 700px at 0%  110%,   rgba(255,214,10,.06), transparent 60%),
+    var(--void);
+  cursor: crosshair;
+}
+
+img { display: block; max-width: 100%; }
+
+button {
+  font: inherit;
+  color: inherit;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+ul { list-style: none; padding: 0; margin: 0; }
+
+::selection {
+  background: var(--neon-pink);
+  color: var(--void);
+}
+
+/* -----------------------------
+   2. CRT / SCANLINES / NOISE
+   Плёнка поверх всего. pointer-events:none, чтобы не мешать.
+   ----------------------------- */
+.crt {
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 90;
+  mix-blend-mode: screen;
+}
+
+.crt__scanlines {
+  position: absolute; inset: 0;
+  background: repeating-linear-gradient(
+    to bottom,
+    rgba(255,255,255,.05) 0 1px,
+    transparent          1px 3px
+  );
+  opacity: .5;
+}
+
+.crt__noise {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(rgba(255,255,255,.06) 1px, transparent 1px) 0 0/3px 3px,
+    radial-gradient(rgba(255,255,255,.04) 1px, transparent 1px) 1px 1px/3px 3px;
+  animation: noiseShift .12s steps(2) infinite;
+  opacity: .35;
+}
+
+.crt__vignette {
+  position: absolute; inset: 0;
+  background: radial-gradient(ellipse at center,
+              transparent 55%, rgba(0,0,0,.85) 100%);
+  mix-blend-mode: multiply;
+}
+
+@keyframes noiseShift {
+  0%   { transform: translate(0,0); }
+  25%  { transform: translate(-2px, 1px); }
+  50%  { transform: translate(1px,-2px); }
+  75%  { transform: translate(-1px,-1px); }
+  100% { transform: translate(2px, 1px); }
+}
+
+/* -----------------------------
+   3. GLOBAL GLITCH (на 0.7с при клике)
+   Триггерится JS-классом .is-firing.
+   ----------------------------- */
+.global-glitch {
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: 95;
+  opacity: 0;
+  transition: opacity .12s linear;
+}
+
+.global-glitch.is-firing { opacity: 1; }
+
+.global-glitch__r,
+.global-glitch__g,
+.global-glitch__b {
+  position: absolute; inset: 0;
+  mix-blend-mode: screen;
+  background:
+    repeating-linear-gradient(
+      to bottom,
+      currentColor 0 1px,
+      transparent 1px 4px
+    );
+}
+
+.global-glitch__r { color: rgba(255,0,60,.55);  transform: translateX(-6px); }
+.global-glitch__g { color: rgba(0,255,140,.40); transform: translateX( 0px); }
+.global-glitch__b { color: rgba(0,200,255,.55); transform: translateX( 6px); }
+
+.global-glitch.is-firing .global-glitch__r { animation: gShakeR .7s steps(8); }
+.global-glitch.is-firing .global-glitch__b { animation: gShakeB .7s steps(8); }
+
+.global-glitch__noise {
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(rgba(255,255,255,.6) 1px, transparent 1px) 0 0/2px 2px,
+    radial-gradient(rgba(255,255,255,.4) 1px, transparent 1px) 1px 1px/2px 2px;
+  mix-blend-mode: difference;
+  opacity: .4;
+}
+.global-glitch.is-firing .global-glitch__noise { animation: noiseShift .04s steps(2) infinite; }
+
+@keyframes gShakeR {
+  0%   { transform: translateX(-6px); }
+  20%  { transform: translateX(-22px) skewX(-3deg); }
+  40%  { transform: translateX(  4px) skewX( 4deg); }
+  60%  { transform: translateX(-14px); }
+  80%  { transform: translateX( 10px); }
+  100% { transform: translateX( -6px); }
+}
+@keyframes gShakeB {
+  0%   { transform: translateX( 6px); }
+  20%  { transform: translateX( 22px) skewX( 3deg); }
+  40%  { transform: translateX( -4px) skewX(-4deg); }
+  60%  { transform: translateX( 14px); }
+  80%  { transform: translateX(-10px); }
+  100% { transform: translateX(  6px); }
+}
+
+/* -----------------------------
+   4. ШАТЁР — цирковые полосы по краям
+   ----------------------------- */
+.tent {
+  position: fixed; left: 0; right: 0;
+  height: 22px;
+  z-index: 80;
+  pointer-events: none;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--circus-red) 0 28px,
+    var(--circus-white) 28px 56px
+  );
+  box-shadow: 0 0 12px rgba(255,31,61,.5) inset;
+}
+.tent--top    { top: 0;    border-bottom: 2px solid #000; }
+.tent--bottom { bottom: 0; border-top:    2px solid #000; transform: scaleX(-1); }
+
+/* -----------------------------
+   5. STAGE / LAYOUT
+   ----------------------------- */
+.stage {
+  position: relative;
+  z-index: 1;
+  max-width: var(--maxw);
+  margin: 0 auto;
+  padding: clamp(48px, 6vw, 96px) clamp(20px, 4vw, 48px) 80px;
+}
+
+.section-title {
+  font-family: "Bungee Inline", "Comic Sans MS", sans-serif;
+  font-weight: 400;
+  letter-spacing: .02em;
+  font-size: clamp(28px, 4vw, 56px);
+  margin: 0 0 var(--gap);
+  color: var(--acid-yellow);
+  text-shadow:
+    -2px 0 0 var(--circus-red),
+     2px 0 0 var(--deep-blue);
+}
+
+/* -----------------------------
+   6. HERO / ГЛИТЧ-ЗАГОЛОВОК
+   ----------------------------- */
+.hero {
+  text-align: center;
+  padding: clamp(48px, 8vw, 120px) 0 clamp(40px, 6vw, 96px);
+  position: relative;
+}
+
+.hero__pretext {
+  font-family: "VT323", monospace;
+  letter-spacing: .25em;
+  text-transform: uppercase;
+  color: var(--toxic-green);
+  font-size: clamp(14px, 1.2vw, 18px);
+  margin: 0 0 18px;
+  opacity: .85;
+}
+
+.glitch-title {
+  font-family: "Bungee Shade", "Comic Sans MS", sans-serif;
+  font-weight: 400;
+  font-size: clamp(36px, 7vw, 112px);
+  line-height: 1;
+  margin: 0 auto;
+  max-width: 14ch;
+  color: var(--circus-white);
+  letter-spacing: .01em;
+  /* will-change хинт браузеру для скью-кадров */
+  will-change: transform, text-shadow, filter;
+  /* RGB-split через несколько разноцветных теней */
+  text-shadow:
+    -3px 0 0 var(--circus-red),
+     3px 0 0 var(--deep-blue),
+     0 0 20px rgba(255,43,214,.45);
+  animation:
+    titleRGB    2.4s steps(20) infinite,
+    titleSkew   5.5s var(--ease-soft) infinite,
+    titleJitter .25s steps(2) infinite;
+  cursor: pointer;
+}
+
+@keyframes titleRGB {
+  0%   { text-shadow: -3px 0 0 var(--circus-red),  3px 0 0 var(--deep-blue),  0 0 20px rgba(255,43,214,.45); }
+  20%  { text-shadow: -8px 0 0 var(--circus-red),  6px 0 0 var(--deep-blue),  0 0 30px rgba(255,43,214,.6);  }
+  40%  { text-shadow:  4px 0 0 var(--circus-red), -5px 0 0 var(--deep-blue),  0 0 10px rgba(255,43,214,.3);  }
+  60%  { text-shadow: -2px 0 0 var(--circus-red),  2px 0 0 var(--deep-blue),  0 0 24px rgba(255,43,214,.5);  }
+  80%  { text-shadow: -12px 0 0 var(--circus-red), 9px 0 0 var(--deep-blue),  0 0 40px rgba(255,43,214,.7);  }
+  100% { text-shadow: -3px 0 0 var(--circus-red),  3px 0 0 var(--deep-blue),  0 0 20px rgba(255,43,214,.45); }
+}
+
+/* Кратковременное искажение — skew + лёгкий сдвиг */
+@keyframes titleSkew {
+  0%, 86%, 100% { transform: skew(0deg, 0deg) translate(0,0); filter: none; }
+  88%           { transform: skew(-8deg, 1deg) translate(-4px, 1px); filter: hue-rotate(40deg) saturate(1.4); }
+  90%           { transform: skew( 6deg,-1deg) translate( 5px,-2px); filter: hue-rotate(-20deg); }
+  92%           { transform: skew(-3deg, 0deg) translate(-2px, 0px); }
+  94%           { transform: skew( 0deg, 0deg) translate(0,0); }
+}
+
+@keyframes titleJitter {
+  0%, 100% { letter-spacing: .01em; }
+  50%      { letter-spacing: .02em; }
+}
+
+.hero__sub {
+  margin: clamp(16px, 2vw, 28px) auto 0;
+  max-width: 60ch;
+  font-size: clamp(15px, 1.2vw, 19px);
+  color: rgba(255,255,255,.85);
+}
+.hero__sub strong {
+  color: var(--neon-pink);
+  text-shadow: 0 0 12px rgba(255,43,214,.6);
+}
+
+/* -----------------------------
+   7. EXIT BUTTON (убегающая)
+   Позиционируется JS через position:fixed + top/left.
+   ----------------------------- */
+.exit-btn {
+  position: relative;
+  display: inline-block;
+  margin-top: clamp(28px, 4vw, 48px);
+  padding: 18px 46px;
+  font-family: "Bungee Inline", "Comic Sans MS", sans-serif;
+  font-size: clamp(20px, 2.2vw, 32px);
+  letter-spacing: .12em;
+  color: var(--void);
+  background: var(--acid-yellow);
+  border: 4px solid var(--circus-red);
+  border-radius: 6px;
+  box-shadow:
+    0 0 0 4px var(--circus-white),
+    0 0 30px rgba(255,214,10,.5),
+    8px 8px 0 var(--circus-red);
+  text-shadow: 1px 0 0 var(--circus-red), -1px 0 0 var(--deep-blue);
+  transition:
+    top    .25s var(--ease-soft),
+    left   .25s var(--ease-soft),
+    transform .15s var(--ease-soft),
+    filter .2s linear;
+  z-index: 70;
+  will-change: top, left, transform;
+}
+
+/* Пока кнопка не "убежала" — обычный inline-flow */
+.exit-btn:not(.is-fleeing) { position: relative; }
+.exit-btn.is-fleeing       { position: fixed; }
+
+.exit-btn:active { transform: scale(.97); }
+.exit-btn.is-panicked { filter: hue-rotate(180deg) saturate(2); }
+
+/* -----------------------------
+   8. CAINE
+   ----------------------------- */
+.caine-section {
+  padding: clamp(40px, 6vw, 80px) 0;
+  text-align: center;
+}
+
+.caine {
+  position: relative;
+  width: min(520px, 80vw);
+  margin: 0 auto;
+  filter: drop-shadow(0 0 30px rgba(255,43,214,.45));
+}
+
+.caine__svg {
+  width: 100%;
+  height: auto;
+  /* Лёгкий плавающий хинт жизни */
+  animation: caineBreath 6s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes caineBreath {
+  0%, 100% { transform: scale(1)   rotate(0deg); }
+  50%      { transform: scale(1.02) rotate(.4deg); }
+}
+
+.caine__jaw--top    { transform-origin: 50% 70%; animation: jawTop    7s ease-in-out infinite; }
+.caine__jaw--bottom { transform-origin: 50% 30%; animation: jawBottom 7s ease-in-out infinite; }
+
+@keyframes jawTop {
+  0%, 70%, 100% { transform: translateY(0); }
+  78%           { transform: translateY(-8px); }
+  86%           { transform: translateY(0); }
+}
+@keyframes jawBottom {
+  0%, 70%, 100% { transform: translateY(0); }
+  78%           { transform: translateY(10px); }
+  86%           { transform: translateY(0); }
+}
+
+/* "Сломанные" глаза — JS включает класс .is-broken */
+.caine.is-broken .caine__pupil { fill: var(--circus-red); }
+.caine.is-broken .caine__eye   { animation: eyeShake .12s steps(2) 6; }
+
+@keyframes eyeShake {
+  0%, 100% { transform-origin: center; }
+  50%      { transform: translate(2px,-1px); }
+}
+
+.caine__caption {
+  font-family: "VT323", monospace;
+  letter-spacing: .18em;
+  color: var(--toxic-green);
+  margin-top: 18px;
+  text-transform: uppercase;
+  font-size: clamp(12px, 1vw, 16px);
+}
+
+/* -----------------------------
+   9. PRISONERS / CARDS
+   ----------------------------- */
+.prisoners {
+  padding: clamp(40px, 6vw, 80px) 0 0;
+}
+
+.prisoners__lead {
+  max-width: 60ch;
+  margin: 0 0 clamp(24px, 3vw, 40px);
+  color: rgba(255,255,255,.78);
+}
+
+.prisoners__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: clamp(20px, 2.4vw, 36px);
+}
+
+.card {
+  position: relative;
+  background:
+    linear-gradient(180deg, rgba(255,255,255,.04), rgba(255,255,255,0)),
+    var(--void-2);
+  border: 2px solid rgba(255,255,255,.12);
+  border-radius: 14px;
+  overflow: hidden;
+  transition: transform .35s var(--ease-soft),
+              border-color .35s var(--ease-soft),
+              box-shadow .35s var(--ease-soft);
+  cursor: pointer;
+}
+
+.card::before {
+  /* Цирковая лента сверху */
+  content: "";
+  position: absolute; top: 0; left: 0; right: 0; height: 8px;
+  background: repeating-linear-gradient(
+    90deg,
+    var(--circus-red) 0 16px,
+    var(--circus-white) 16px 32px
+  );
+  z-index: 2;
+}
+
+.card:hover {
+  transform: translateY(-4px) rotate(-.4deg);
+  border-color: var(--neon-pink);
+  box-shadow:
+    0 18px 40px -20px rgba(255,43,214,.6),
+    0 0 0 2px rgba(255,43,214,.4);
+}
+
+.card__frame {
+  position: relative;
+  aspect-ratio: 3 / 4;
+  overflow: hidden;
+  background: var(--void);
+  isolation: isolate;
+}
+
+.card__photo {
+  width: 100%; height: 100%;
+  object-fit: cover;
+  transition:
+    filter .4s var(--ease-soft),
+    transform .4s var(--ease-soft),
+    clip-path .25s steps(3);
+  /* Базовая лёгкая стилизация под "из 90-х" */
+  filter: contrast(1.05) saturate(1.05);
+}
+
+.card:hover .card__photo {
+  /* HOVER: глитч-фильтры по ТЗ */
+  filter:
+    hue-rotate(220deg)
+    saturate(1.8)
+    contrast(1.2)
+    blur(.4px);
+  animation: photoGlitch .9s steps(6) infinite;
+}
+
+@keyframes photoGlitch {
+  0%   { clip-path: inset(0 0 0 0);            transform: translate(0,0); }
+  20%  { clip-path: inset(8% 0 70% 0);         transform: translate(-3px,1px); filter: hue-rotate(180deg) invert(.05) saturate(2); }
+  40%  { clip-path: inset(40% 0 30% 0);        transform: translate( 4px,-1px); }
+  55%  { clip-path: inset(70% 0 8% 0);         transform: translate(-2px,2px); filter: hue-rotate(60deg)  invert(.15) saturate(1.5); }
+  70%  { clip-path: inset(20% 0 50% 0);        transform: translate( 3px,0); }
+  100% { clip-path: inset(0 0 0 0);            transform: translate(0,0); }
+}
+
+.card__id {
+  position: absolute; right: 10px; top: 18px;
+  background: var(--void);
+  color: var(--acid-yellow);
+  padding: 4px 10px;
+  font-family: "VT323", monospace;
+  font-size: 14px;
+  letter-spacing: .15em;
+  border: 1px solid var(--acid-yellow);
+  z-index: 3;
+}
+
+.card__body {
+  padding: 18px 20px 22px;
+}
+
+.card__name {
+  margin: 0 0 4px;
+  font-family: "Bungee Inline", "Comic Sans MS", sans-serif;
+  font-size: clamp(20px, 2vw, 28px);
+  letter-spacing: .04em;
+  color: var(--circus-white);
+  text-shadow: -2px 0 0 var(--circus-red), 2px 0 0 var(--deep-blue);
+}
+
+.card__role {
+  margin: 0 0 10px;
+  color: var(--neon-pink);
+  font-family: "VT323", monospace;
+  letter-spacing: .15em;
+  text-transform: uppercase;
+}
+
+.card__quote {
+  margin: 0;
+  color: rgba(255,255,255,.8);
+  font-style: italic;
+  font-size: 15px;
+}
+
+/* -----------------------------
+   10. FOOTER
+   ----------------------------- */
+.footer {
+  padding: clamp(48px, 6vw, 96px) 0 24px;
+  text-align: center;
+  font-family: "VT323", monospace;
+  color: rgba(255,255,255,.55);
+  letter-spacing: .2em;
+}
+.footer__line { margin: 4px 0; }
+.footer__line--small { font-size: 12px; opacity: .65; }
+
+/* -----------------------------
+   11. ACCESSIBILITY / REDUCE MOTION
+   ----------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+  .glitch-title { text-shadow: -2px 0 0 var(--circus-red), 2px 0 0 var(--deep-blue); }
+}
+
+/* -----------------------------
+   12. SMALL SCREENS
+   ----------------------------- */
+@media (max-width: 520px) {
+  .stage { padding-top: 64px; padding-bottom: 64px; }
+  .glitch-title { letter-spacing: 0; }
+  .exit-btn { padding: 14px 28px; }
+}

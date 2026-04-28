@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Удивительный Цифровой Цирк — интерактивное веб-погружение по вселенной The Amazing Digital Circus. Глитчи, наблюдающий ИИ Кейн и узники Бездны." />
+  <meta name="theme-color" content="#000000" />
+  <title>УДИВИТЕЛЬНЫЙ ЦИФРОВОЙ ЦИРК — Добро пожаловать в Бездну</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bungee+Inline&family=Bungee+Shade&family=Comic+Neue:wght@400;700&family=VT323&display=swap"
+    rel="stylesheet"
+  />
+  <link rel="stylesheet" href="index.css" />
+</head>
+<body>
+  <!-- ============================================================
+       CRT / SCANLINES OVERLAY
+       Постоянная "плёнка" поверх всего — статический шум,
+       сканлайны и виньетка. Не реагирует на курсор.
+       ============================================================ -->
+  <div class="crt" aria-hidden="true">
+    <div class="crt__scanlines"></div>
+    <div class="crt__noise"></div>
+    <div class="crt__vignette"></div>
+  </div>
+
+  <!-- ============================================================
+       ГЛОБАЛЬНЫЙ СБОЙ
+       Активируется при клике на любой интерактивный элемент.
+       На 0.7с поверх всего — RGB-сдвиг + усиленный шум.
+       ============================================================ -->
+  <div id="globalGlitch" class="global-glitch" aria-hidden="true">
+    <div class="global-glitch__r"></div>
+    <div class="global-glitch__g"></div>
+    <div class="global-glitch__b"></div>
+    <div class="global-glitch__noise"></div>
+  </div>
+
+  <!-- ============================================================
+       ЦИРКОВЫЕ ПОЛОСЫ ПО КРАЯМ (CSS-only)
+       ============================================================ -->
+  <div class="tent tent--top" aria-hidden="true"></div>
+  <div class="tent tent--bottom" aria-hidden="true"></div>
+
+  <main class="stage">
+    <!-- ===========================================
+         HEADER / ГЛИТЧ-ЗАГОЛОВОК
+         =========================================== -->
+    <header class="hero">
+      <p class="hero__pretext" data-glitchable>// SIGNAL_LOST :: WELCOME_BACK //</p>
+
+      <h1
+        id="glitchTitle"
+        class="glitch-title"
+        data-glitchable
+        data-text="УДИВИТЕЛЬНЫЙ ЦИФРОВОЙ ЦИРК"
+        aria-label="Удивительный цифровой цирк"
+      >
+        УДИВИТЕЛЬНЫЙ ЦИФРОВОЙ ЦИРК
+      </h1>
+
+      <p class="hero__sub" data-glitchable>
+        Психологический хоррор, замаскированный под детское CGI-шоу.
+        Внутри — наблюдает <strong>КЕЙН</strong>.
+      </p>
+
+      <!-- Убегающая кнопка ВЫХОД -->
+      <button
+        id="exitButton"
+        class="exit-btn"
+        type="button"
+        aria-label="Попытаться выйти из Цифрового Цирка"
+      >
+        ВЫХОД
+      </button>
+    </header>
+
+    <!-- ===========================================
+         CAINE — лицо ИИ, следящее за курсором
+         Челюсть с глазами, всё на SVG/CSS.
+         =========================================== -->
+    <section class="caine-section" aria-labelledby="caineTitle">
+      <h2 id="caineTitle" class="section-title" data-glitchable>
+        КЕЙН ВИДИТ ТЕБЯ
+      </h2>
+
+      <div class="caine" id="caine" aria-hidden="true">
+        <svg
+          class="caine__svg"
+          viewBox="0 0 600 600"
+          xmlns="http://www.w3.org/2000/svg"
+          role="img"
+        >
+          <!-- Сияние позади -->
+          <defs>
+            <radialGradient id="halo" cx="50%" cy="50%" r="50%">
+              <stop offset="0%"  stop-color="#ff2bd6" stop-opacity=".55"/>
+              <stop offset="60%" stop-color="#1a0030" stop-opacity="0"/>
+            </radialGradient>
+            <linearGradient id="tooth" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"  stop-color="#ffffff"/>
+              <stop offset="100%" stop-color="#cfd8e3"/>
+            </linearGradient>
+            <linearGradient id="gum" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%"  stop-color="#ff3b6e"/>
+              <stop offset="100%" stop-color="#8a0030"/>
+            </linearGradient>
+          </defs>
+
+          <circle cx="300" cy="300" r="290" fill="url(#halo)"/>
+
+          <!-- Верхний ряд зубов (челюсть-арка) -->
+          <g class="caine__jaw caine__jaw--top">
+            <path d="M40,300 Q300,40 560,300 L560,310 L40,310 Z" fill="url(#gum)"/>
+            <!-- Зубы: каждый — четырёхугольник -->
+            <g fill="url(#tooth)" stroke="#1a0030" stroke-width="2">
+              <polygon points="60,300 110,300 120,380 70,380"/>
+              <polygon points="120,260 175,260 185,360 130,360"/>
+              <polygon points="190,225 250,225 255,345 200,345"/>
+              <polygon points="265,205 335,205 335,340 265,340"/>
+              <polygon points="345,225 405,225 400,345 345,345"/>
+              <polygon points="415,260 470,260 465,360 415,360"/>
+              <polygon points="480,300 530,300 525,380 480,380"/>
+            </g>
+          </g>
+
+          <!-- Глазное "пространство" — два глаза внутри челюсти -->
+          <g class="caine__eyes" id="caineEyes">
+            <!-- Левый глаз -->
+            <g class="caine__eye" id="caineEyeL" transform="translate(210,250)">
+              <circle r="50" fill="#ffffff" stroke="#1a0030" stroke-width="3"/>
+              <circle class="caine__pupil" r="22" fill="#0d0019"/>
+              <circle class="caine__shine" cx="-8" cy="-10" r="6" fill="#ffffff"/>
+            </g>
+            <!-- Правый глаз -->
+            <g class="caine__eye" id="caineEyeR" transform="translate(390,250)">
+              <circle r="50" fill="#ffffff" stroke="#1a0030" stroke-width="3"/>
+              <circle class="caine__pupil" r="22" fill="#0d0019"/>
+              <circle class="caine__shine" cx="-8" cy="-10" r="6" fill="#ffffff"/>
+            </g>
+          </g>
+
+          <!-- Нижний ряд зубов -->
+          <g class="caine__jaw caine__jaw--bottom">
+            <path d="M40,420 L560,420 L560,430 Q300,690 40,430 Z" fill="url(#gum)"/>
+            <g fill="url(#tooth)" stroke="#1a0030" stroke-width="2">
+              <polygon points="70,420 120,420 110,500 60,500"/>
+              <polygon points="130,420 185,420 175,520 120,520"/>
+              <polygon points="200,420 255,420 250,535 190,535"/>
+              <polygon points="265,420 335,420 335,545 265,545"/>
+              <polygon points="345,420 400,420 405,535 345,535"/>
+              <polygon points="415,420 470,420 480,520 415,520"/>
+              <polygon points="480,420 530,420 540,500 490,500"/>
+            </g>
+          </g>
+        </svg>
+
+        <p class="caine__caption" data-glitchable>
+          // курсор отслежен — двигайся медленно //
+        </p>
+      </div>
+    </section>
+
+    <!-- ===========================================
+         КАРТОЧКИ УЗНИКОВ
+         =========================================== -->
+    <section class="prisoners" aria-labelledby="prisonersTitle">
+      <h2 id="prisonersTitle" class="section-title" data-glitchable>
+        КАРТОЧКИ УЗНИКОВ
+      </h2>
+      <p class="prisoners__lead" data-glitchable>
+        Заключённые Бездны. Наведи курсор — почувствуй сбой в их сигнале.
+      </p>
+
+      <ul class="prisoners__grid">
+        <li class="card" data-prisoner="pomni">
+          <div class="card__frame">
+            <img
+              class="card__photo"
+              src="https://placehold.co/600x800/1a0030/ff2bd6?text=POMNI"
+              alt="Pomni — jester girl with red and blue hair, mismatched eyes"
+              loading="lazy"
+            />
+            <span class="card__id">№001</span>
+          </div>
+          <div class="card__body">
+            <h3 class="card__name" data-glitchable>ПОМНИ</h3>
+            <p class="card__role">Шут / Главная героиня</p>
+            <p class="card__quote" data-glitchable>
+              «Я только что попала сюда. Это же не навсегда?..»
+            </p>
+          </div>
+        </li>
+
+        <li class="card" data-prisoner="ragatha">
+          <div class="card__frame">
+            <img
+              class="card__photo"
+              src="https://placehold.co/600x800/1a0030/ffd60a?text=RAGATHA"
+              alt="Ragatha — rag doll character with red yarn hair"
+              loading="lazy"
+            />
+            <span class="card__id">№002</span>
+          </div>
+          <div class="card__body">
+            <h3 class="card__name" data-glitchable>РАГАТА</h3>
+            <p class="card__role">Тряпичная кукла / Голос разума</p>
+            <p class="card__quote" data-glitchable>
+              «Просто… не сходи с ума, как остальные.»
+            </p>
+          </div>
+        </li>
+
+        <li class="card" data-prisoner="jax">
+          <div class="card__frame">
+            <img
+              class="card__photo"
+              src="https://placehold.co/600x800/1a0030/2bd6ff?text=JAX"
+              alt="Jax — purple rabbit character with sharp grin"
+              loading="lazy"
+            />
+            <span class="card__id">№003</span>
+          </div>
+          <div class="card__body">
+            <h3 class="card__name" data-glitchable>ДЖЕКС</h3>
+            <p class="card__role">Кролик / Хаос</p>
+            <p class="card__quote" data-glitchable>
+              «Мне здесь, кстати, нормально. Скучно — но смешно.»
+            </p>
+          </div>
+        </li>
+
+        <li class="card" data-prisoner="gangle">
+          <div class="card__frame">
+            <img
+              class="card__photo"
+              src="https://placehold.co/600x800/1a0030/ff3b6e?text=GANGLE"
+              alt="Gangle — ribbon character with theatre mask"
+              loading="lazy"
+            />
+            <span class="card__id">№004</span>
+          </div>
+          <div class="card__body">
+            <h3 class="card__name" data-glitchable>ГЭНГЛ</h3>
+            <p class="card__role">Лента / Вечно на грани слёз</p>
+            <p class="card__quote" data-glitchable>
+              «Маска снова треснула. Пожалуйста, не смотри.»
+            </p>
+          </div>
+        </li>
+
+        <li class="card" data-prisoner="kinger">
+          <div class="card__frame">
+            <img
+              class="card__photo"
+              src="https://placehold.co/600x800/1a0030/8aff2b?text=KINGER"
+              alt="Kinger — chess king piece character, paranoid"
+              loading="lazy"
+            />
+            <span class="card__id">№005</span>
+          </div>
+          <div class="card__body">
+            <h3 class="card__name" data-glitchable>КИНГЕР</h3>
+            <p class="card__role">Шахматный король / Параноик</p>
+            <p class="card__quote" data-glitchable>
+              «Они идут из-под пола. Я их слышу. Слышу.»
+            </p>
+          </div>
+        </li>
+
+        <li class="card" data-prisoner="zooble">
+          <div class="card__frame">
+            <img
+              class="card__photo"
+              src="https://placehold.co/600x800/1a0030/c46bff?text=ZOOBLE"
+              alt="Zooble — modular toy character with detachable parts"
+              loading="lazy"
+            />
+            <span class="card__id">№006</span>
+          </div>
+          <div class="card__body">
+            <h3 class="card__name" data-glitchable>ЗУБЛ</h3>
+            <p class="card__role">Сборный / Всем пофиг</p>
+            <p class="card__quote" data-glitchable>
+              «Меня собрали неправильно. Меня всё устраивает.»
+            </p>
+          </div>
+        </li>
+      </ul>
+    </section>
+
+    <!-- ===========================================
+         FOOTER
+         =========================================== -->
+    <footer class="footer">
+      <p class="footer__line" data-glitchable>
+        © C&amp;A AMAZING DIGITAL CIRCUS // ABYSS BUILD <span id="buildId">0.0.7</span>
+      </p>
+      <p class="footer__line footer__line--small">
+        Фан-сайт. Все персонажи принадлежат Glitch Productions.
+      </p>
+    </footer>
+  </main>
+
+  <script src="App.js" defer></script>
+</body>
+</html>
