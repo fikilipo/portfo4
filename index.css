@@ -71,7 +71,9 @@ body {
     radial-gradient(900px 700px at 90% 110%,  rgba(43,107,255,.09), transparent 60%),
     radial-gradient(900px 700px at 0%  110%,  rgba(255,214,10,.05), transparent 60%),
     rgb(calc(5  + var(--bg-tint-r)) calc(0 + var(--bg-tint-g)) calc(8 + var(--bg-tint-b)));
-  perspective: 1200px;
+  /* НЕ ставим perspective на <body> — иначе `position: fixed` ломается
+     (fixed-элементы начинают позиционироваться относительно body).
+     Перспектива для 3D задаётся на .eyes/.eye3d. */
   transition: background 1.2s linear;
 }
 
@@ -450,7 +452,10 @@ ul, ol { list-style: none; padding: 0; margin: 0; }
 .corruption-meter__val { width: 22px; text-align: right; }
 
 /* -----------------------------
-   ГЛАЗА
+   ГЛАЗА  —  настоящие 3D-сферы (CSS).
+   globe — освещённый шар (остаётся в POV зрителя).
+   orbit — вращается вокруг центра шара: rotateX/Y + translateZ(R).
+   iris  — круг, "приклеенный" к поверхности, со зрачком и бликами.
    ----------------------------- */
 .watch {
   padding: clamp(40px, 6vw, 80px) 0;
@@ -460,63 +465,223 @@ ul, ol { list-style: none; padding: 0; margin: 0; }
 .eyes {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: clamp(20px, 4vw, 60px);
+  gap: clamp(24px, 5vw, 80px);
   align-items: center;
   justify-items: center;
-  perspective: 1000px;
-  margin-top: clamp(10px, 2vw, 20px);
+  perspective: 1400px;
+  margin-top: clamp(12px, 2vw, 24px);
 }
 
-.eye {
+.eye3d {
+  --size: min(320px, 40vw);
+  --radius: calc(var(--size) / 2);
   margin: 0;
-  width: min(360px, 42vw);
-  transform-style: preserve-3d;
-  /* у каждого глаза есть базовый "лаговый" дрейф */
-  animation: eyeDrift 9s ease-in-out infinite;
-  will-change: transform;
-}
-.eye--blue { animation-duration: 11s; animation-direction: alternate; }
-.eye--red  { animation-duration: 7.3s; animation-direction: alternate-reverse; }
-
-@keyframes eyeDrift {
-  0%   { transform: translate3d(-6px, -4px, -10px) rotateY(-4deg) rotateX( 3deg); }
-  50%  { transform: translate3d( 6px,  4px,  10px) rotateY( 5deg) rotateX(-3deg); }
-  100% { transform: translate3d(-6px, -4px, -10px) rotateY(-4deg) rotateX( 3deg); }
+  width: var(--size);
+  height: var(--size);
+  display: flex; flex-direction: column; align-items: center;
+  perspective: 1200px;
 }
 
-.eye__stage {
+.eye3d__socket {
+  width: var(--size); height: var(--size);
   position: relative;
   transform-style: preserve-3d;
-  transition: transform .15s var(--ease-soft);
+  /* «висят» в воздухе — мягкое покачивание */
+  animation: socketFloat 7s ease-in-out infinite;
 }
-.eye__svg {
-  width: 100%; height: auto;
-  filter: drop-shadow(0 12px 30px rgba(0,0,0,.55));
+.eye3d--red    .eye3d__socket { animation-duration: 6.2s; }
+.eye3d--white  .eye3d__socket { animation-duration: 8.4s; animation-direction: reverse; }
+
+@keyframes socketFloat {
+  0%, 100% { transform: translate3d(-6px, -4px, 0) rotateZ(-2deg); }
+  50%      { transform: translate3d( 6px,  4px, 0) rotateZ( 2deg); }
 }
 
-.eye--blue .eye__svg { filter: drop-shadow(0 0 30px rgba(43,107,255,.55)); }
-.eye--red  .eye__svg { filter: drop-shadow(0 0 30px rgba(255,31,61,.55)); }
+.eye3d__globe {
+  position: absolute; inset: 0;
+  border-radius: 50%;
+  transform-style: preserve-3d;
+  background:
+    radial-gradient(circle at 32% 28%, #ffffff 0%, #fbfcff 18%, #e8edf4 45%, #bfc7d4 78%, #6a7383 100%);
+  box-shadow:
+    inset -28px -40px 70px rgba(0,0,0,.45),
+    inset  16px  24px 50px rgba(255,255,255,.55),
+    0 18px 40px rgba(0,0,0,.55),
+    0 0 60px rgba(255,255,255,.06);
+  overflow: hidden;
+}
 
-/* «глитч-кадр» — дублируем глаз с RGB-сдвигом */
-.eye::before, .eye::after {
-  content: ""; position: absolute; inset: 0;
-  background: inherit;
+/* Объёмная тень снизу — усиливает ощущение сферы */
+.eye3d__shade {
+  position: absolute; inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 70% 80%, rgba(0,0,0,.35), transparent 45%),
+    radial-gradient(circle at 25% 22%, rgba(255,255,255,.7), transparent 35%);
   pointer-events: none;
 }
-.eye.is-glitching .eye__stage { animation: eyeKick .25s steps(3); }
+
+/* Красные сосуды на белке */
+.eye3d__vein {
+  position: absolute;
+  width: 40%; height: 1px;
+  background: linear-gradient(90deg, transparent, #b81c4a 40%, #ff4a68 70%, transparent);
+  opacity: .45;
+  pointer-events: none;
+  transform-origin: 50% 50%;
+}
+.eye3d__vein--1 { top: 30%; left:  8%;  transform: rotate( -8deg); }
+.eye3d__vein--2 { top: 62%; left: 10%;  transform: rotate( 14deg); height: 1.5px; }
+.eye3d__vein--3 { top: 40%; right: 6%;  transform: rotate(-18deg); }
+.eye3d__vein--4 { top: 70%; right: 8%;  transform: rotate( 22deg); }
+
+/* orbit вращается вокруг центра globe, чтобы ирис двигался по сфере. */
+.eye3d__orbit {
+  position: absolute;
+  left: 50%; top: 50%;
+  width: 0; height: 0;
+  transform-style: preserve-3d;
+  transform: translate(-50%,-50%) rotateY(0deg) rotateX(0deg);
+  transition: transform .28s var(--ease-soft);
+}
+.eye3d--red .eye3d__orbit { transition-duration: .12s; }
+
+.eye3d__iris {
+  position: absolute;
+  width: calc(var(--size) * .42);
+  height: calc(var(--size) * .42);
+  left: calc(var(--size) * -.21);
+  top:  calc(var(--size) * -.21);
+  border-radius: 50%;
+  /* ирис приклеен к поверхности шара */
+  transform: translateZ(var(--radius));
+  background:
+    radial-gradient(circle at 50% 50%,
+      #04030a 0%, #04030a 32%,          /* зрачок-"дыра" */
+      #2d0a14 38%, #7a0c22 55%,
+      #1b2640 72%, #000 96%);
+  box-shadow:
+    inset 0 0 12px rgba(0,0,0,.7),
+    inset 0 0 24px rgba(120,6,24,.6),
+    0 0 14px rgba(0,0,0,.35);
+}
+/* белый глаз — "холодная" радужка */
+.eye3d--white .eye3d__iris {
+  background:
+    radial-gradient(circle at 50% 50%,
+      #fafafa 0%, #fafafa 30%,
+      #c3c6cc 40%, #6c7180 60%,
+      #1a1d26 85%, #000 100%);
+  box-shadow:
+    inset 0 0 12px rgba(0,0,0,.6),
+    inset 0 0 24px rgba(255,255,255,.35),
+    0 0 14px rgba(0,0,0,.35);
+}
+
+.eye3d__iris-ring {
+  position: absolute; inset: 18%;
+  border-radius: 50%;
+  border: 1px solid rgba(0,0,0,.4);
+  pointer-events: none;
+}
+
+.eye3d__pupil {
+  position: absolute;
+  left: 32%; top: 32%;
+  width: 36%; height: 36%;
+  border-radius: 50%;
+  display: grid; place-items: center;
+}
+.eye3d__pupil-core {
+  position: absolute; inset: 8%;
+  border-radius: 50%;
+}
+.eye3d__pupil-highlight {
+  position: absolute;
+  width: 28%; height: 20%;
+  left: 15%; top: 15%;
+  border-radius: 50%;
+  background: rgba(255,255,255,.95);
+  filter: blur(.5px);
+}
+
+/* КРАСНЫЙ горящий зрачок */
+.eye3d__pupil--red .eye3d__pupil-core {
+  background:
+    radial-gradient(circle at 50% 50%,
+      #ffee80 0%, #ffb400 18%, #ff2a2a 45%, #8a0010 85%, #1a0000 100%);
+  box-shadow:
+    0 0 12px #ff3040,
+    0 0 22px #ff1020,
+    0 0 40px #b8000a,
+    inset 0 0 8px rgba(255,255,255,.7);
+  animation: pupilPulse 1.6s ease-in-out infinite;
+}
+@keyframes pupilPulse {
+  0%, 100% { filter: brightness(1)    saturate(1.1); transform: scale(1); }
+  50%      { filter: brightness(1.35) saturate(1.5); transform: scale(1.06); }
+}
+
+/* БЕЛЫЙ пустой зрачок */
+.eye3d__pupil--white .eye3d__pupil-core {
+  background:
+    radial-gradient(circle at 50% 50%,
+      #ffffff 0%, #fefefe 40%, #cfd3dc 80%, #7d838f 100%);
+  box-shadow:
+    0 0 10px rgba(255,255,255,.9),
+    0 0 22px rgba(200,220,255,.5),
+    inset 0 0 10px rgba(120,120,140,.5);
+  animation: pupilBlink 4.2s ease-in-out infinite;
+}
+.eye3d__pupil--white .eye3d__pupil-highlight {
+  background: rgba(255,0,0,.2);  /* лёгкий красный блик — как в пустых белых глазах */
+}
+@keyframes pupilBlink {
+  0%, 92%, 100% { transform: scale(1);   opacity: 1; }
+  94%           { transform: scale(1.15);opacity: .3; }
+  96%           { transform: scale(.8);  opacity: 1; }
+}
+
+/* Глянцевый блик на поверхности шара (не вращается вместе с ирисом) */
+.eye3d__gloss {
+  position: absolute;
+  left: 22%; top: 16%;
+  width: 30%; height: 18%;
+  border-radius: 50%;
+  background: radial-gradient(circle at 40% 40%, rgba(255,255,255,.85), transparent 70%);
+  filter: blur(2px);
+  pointer-events: none;
+}
+
+/* Веки — немного перекрывают globe сверху/снизу, добавляют объём */
+.eye3d__lid {
+  position: absolute; left: -4%; right: -4%;
+  height: 22%;
+  background: linear-gradient(180deg, #0a0014 10%, rgba(0,0,0,.4) 100%);
+  pointer-events: none;
+}
+.eye3d__lid--top    { top: -8%;    border-radius: 50% 50% 0 0; box-shadow: 0 8px 14px rgba(0,0,0,.6) inset; }
+.eye3d__lid--bottom { bottom: -8%; border-radius: 0 0 50% 50%; background: linear-gradient(0deg, #0a0014 10%, rgba(0,0,0,.4) 100%); }
+
+/* Анимация моргания — оба глаза изредка мигают */
+.eye3d.is-blinking .eye3d__lid--top    { animation: lidTopBlink    .22s linear; }
+.eye3d.is-blinking .eye3d__lid--bottom { animation: lidBotBlink .22s linear; }
+@keyframes lidTopBlink {
+  0%, 100% { transform: translateY(0); height: 22%; }
+  50%      { transform: translateY(calc(var(--size) * .5)); height: 60%; }
+}
+@keyframes lidBotBlink {
+  0%, 100% { transform: translateY(0); height: 22%; }
+  50%      { transform: translateY(calc(var(--size) * -.5)); height: 60%; }
+}
+
+/* «Глитч-кадр» глаза — кратковременная тряска и RGB-сдвиг */
+.eye3d.is-glitching .eye3d__globe { animation: eyeKick .28s steps(4); }
 @keyframes eyeKick {
-  0%   { transform: translate(-6px, 0); filter: hue-rotate(40deg); }
+  0%   { transform: translate(-6px, 0); filter: hue-rotate(40deg) saturate(1.5); }
   50%  { transform: translate( 6px, 0); filter: hue-rotate(-40deg) invert(.1); }
   100% { transform: translate(0,0); }
 }
-
-.eye__iris {
-  transform-origin: 110px 110px;
-  /* JS двигает зрачок через transform="translate(...)" — этот transition
-     даёт «лаг» / задержку, ощущение, что взгляд догоняет курсор. */
-  transition: transform .25s var(--ease-soft);
-}
-.eye--red .eye__iris { transition-duration: .12s; } /* красный — резкий */
 
 .eye__caption {
   display: block;
@@ -526,17 +691,6 @@ ul, ol { list-style: none; padding: 0; margin: 0; }
   color: var(--toxic-green);
   text-transform: uppercase;
   font-size: 14px;
-}
-
-.eye__tear {
-  transform-origin: 86px 158px;
-  animation: tearDrip 5.5s ease-in-out infinite;
-}
-@keyframes tearDrip {
-  0%, 70%, 100% { transform: translateY(0); opacity: .75; }
-  85%           { transform: translateY(20px); opacity: 0;  }
-  86%           { transform: translateY(0); opacity: 0; }
-  90%           { opacity: .75; }
 }
 
 /* -----------------------------
@@ -773,6 +927,164 @@ body[data-corruption="6"] .marquee__track { animation-duration: 14s; filter: inv
   content: "✕"; position: absolute; left: 8px; top: 8px;
   color: var(--circus-red);
   font-family: "Bungee Shade", sans-serif;
+}
+
+/* =================================================================
+   CHYRON — вместо нативного alert() показываем подпись в стиле ТВ
+   ================================================================= */
+.chyron {
+  position: fixed; left: 50%; bottom: 44px;
+  transform: translate(-50%, 40px);
+  display: inline-flex; align-items: center; gap: 12px;
+  padding: 12px 22px;
+  max-width: min(720px, 90vw);
+  z-index: 115;
+  background: linear-gradient(90deg, #000 0%, #1a0007 50%, #000 100%);
+  border: 2px solid var(--circus-red);
+  box-shadow:
+    0 0 0 4px #000,
+    0 0 24px rgba(255,31,61,.6),
+    8px 8px 0 var(--circus-red);
+  color: var(--circus-white);
+  font-family: "VT323", monospace;
+  font-size: clamp(16px, 1.6vw, 22px);
+  letter-spacing: .05em;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s linear, transform .35s var(--ease-soft);
+}
+.chyron.is-on {
+  opacity: 1;
+  transform: translate(-50%, 0);
+  animation: chyronShake .12s steps(3) infinite;
+}
+@keyframes chyronShake {
+  0%, 100% { filter: none; }
+  33%      { filter: hue-rotate(30deg) contrast(1.1); transform: translate(calc(-50% - 2px), -1px); }
+  66%      { filter: hue-rotate(-20deg); transform: translate(calc(-50% + 2px), 1px); }
+}
+.chyron__tag {
+  color: var(--acid-yellow);
+  text-shadow: -1px 0 0 var(--circus-red), 1px 0 0 var(--deep-blue);
+  letter-spacing: .2em;
+}
+.chyron__text {
+  color: var(--circus-white);
+  text-shadow: 0 0 6px rgba(255,31,61,.7);
+  white-space: nowrap;
+  overflow: hidden;
+}
+.chyron__caret {
+  color: var(--circus-red);
+  animation: chyronBlink 1s steps(2) infinite;
+}
+@keyframes chyronBlink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
+}
+
+/* =================================================================
+   FX — слой конфетти, следа курсора и «отпадающих» букв
+   ================================================================= */
+.fx {
+  position: fixed; inset: 0;
+  z-index: 100;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+/* Конфетти — кусочки красно-белой плёнки вылетают из точки клика */
+.confetto {
+  position: absolute;
+  width: 10px; height: 14px;
+  background: var(--circus-red);
+  will-change: transform, opacity;
+  animation: confettoFall 1.4s cubic-bezier(.15,.6,.3,1) forwards;
+}
+.confetto--white { background: var(--circus-white); }
+.confetto--yellow { background: var(--acid-yellow); }
+.confetto--stripe {
+  background: repeating-linear-gradient(90deg,
+    var(--circus-red) 0 4px, var(--circus-white) 4px 8px);
+}
+@keyframes confettoFall {
+  0%   { transform: translate(0,0) rotate(0);    opacity: 1; }
+  100% { transform: translate(var(--dx,0), var(--dy,260px)) rotate(var(--rot,540deg)); opacity: 0; }
+}
+
+/* След курсора — маленькие кружки тухнут за 500мс */
+.cursor-trail {
+  position: absolute;
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--neon-pink), transparent 70%);
+  mix-blend-mode: screen;
+  will-change: transform, opacity;
+  animation: trailFade .55s ease-out forwards;
+}
+@keyframes trailFade {
+  from { transform: scale(1);   opacity: .9; }
+  to   { transform: scale(2.4); opacity: 0;  }
+}
+
+/* Отпадающая буква заголовка */
+.letter-drop {
+  position: fixed;
+  font-family: "Bungee Shade", sans-serif;
+  color: var(--circus-white);
+  text-shadow: -3px 0 0 var(--circus-red), 3px 0 0 var(--deep-blue);
+  pointer-events: none;
+  z-index: 102;
+  will-change: transform, opacity;
+  animation: letterFall 1.6s cubic-bezier(.4,0,.8,1) forwards;
+}
+@keyframes letterFall {
+  0%   { transform: translate(0,0) rotate(0);   opacity: 1; }
+  100% { transform: translate(var(--dx,40px), 80vh) rotate(var(--rot,720deg)); opacity: 0; }
+}
+
+/* =================================================================
+   МИНИ-ПОМНИ — появляется на кодовое слово, бегает по экрану
+   ================================================================= */
+.pomni-pet {
+  position: fixed;
+  left: 50%; top: 50%;
+  width: 120px;
+  transform: translate(-50%, -50%) scale(0);
+  z-index: 105;
+  pointer-events: none;
+  transition: transform .4s var(--ease-soft);
+  filter: drop-shadow(0 8px 16px rgba(0,0,0,.7));
+}
+.pomni-pet.is-on { transform: translate(-50%, -50%) scale(1); }
+.pomni-pet img {
+  width: 100%; height: auto;
+  animation: pomniWobble 1.8s ease-in-out infinite;
+}
+@keyframes pomniWobble {
+  0%, 100% { transform: translateY(0) rotate(-4deg); }
+  50%      { transform: translateY(-8px) rotate(4deg); }
+}
+.pomni-pet__bubble {
+  position: absolute;
+  left: calc(100% + 6px); top: -10px;
+  background: var(--circus-white);
+  color: var(--void);
+  padding: 6px 10px;
+  font-family: "Comic Neue", sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  white-space: nowrap;
+  border: 2px solid var(--void);
+  border-radius: 10px;
+  box-shadow: 3px 3px 0 var(--circus-red);
+}
+.pomni-pet__bubble::before {
+  content: "";
+  position: absolute;
+  left: -8px; top: 14px;
+  border: 6px solid transparent;
+  border-right-color: var(--void);
 }
 
 /* -----------------------------

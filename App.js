@@ -86,9 +86,28 @@
   });
 
   function startGlitch(el) {
-    if (!el.dataset.text) el.dataset.text = el.textContent;
     if (el.dataset.glitching === "1") return;
     el.dataset.glitching = "1";
+    /* Случай 1: элемент разбит на span-буквы (заголовок) — глитчим каждую. */
+    const spans = el.querySelectorAll(".glitch-title__ch");
+    if (spans.length) {
+      spans.forEach((s) => { if (!s.dataset.ch) s.dataset.ch = s.textContent; });
+      const tick = () => {
+        if (el.dataset.glitching !== "1") return;
+        spans.forEach((s) => {
+          const c = s.dataset.ch;
+          if (c === " " || s.classList.contains("is-gone")) return;
+          s.textContent = Math.random() < 0.35
+            ? GLITCH_CHARS[randInt(0, GLITCH_CHARS.length - 1)]
+            : c;
+        });
+        el._t = setTimeout(tick, 55);
+      };
+      tick();
+      return;
+    }
+    /* Случай 2: обычный текст. */
+    if (!el.dataset.text) el.dataset.text = el.textContent;
     const original = el.dataset.text;
     const tick = () => {
       if (el.dataset.glitching !== "1") return;
@@ -106,6 +125,11 @@
   function stopGlitch(el) {
     el.dataset.glitching = "0";
     if (el._t) clearTimeout(el._t);
+    const spans = el.querySelectorAll(".glitch-title__ch");
+    if (spans.length) {
+      spans.forEach((s) => { if (s.dataset.ch) s.textContent = s.dataset.ch; });
+      return;
+    }
     if (el.dataset.text) el.textContent = el.dataset.text;
   }
 
@@ -126,109 +150,107 @@
   }
 
   /* =========================================================
-     ГЛАЗА — синий + красный. У каждого свой "лаг" и поведение.
+     ГЛАЗА — настоящая CSS-3D-сфера.
+     Каждый глаз вращается в глазнице: orbit -> rotateY/X -> translateZ(R).
      ========================================================= */
   const eyesRoot = $("#eyes");
 
   /**
-   * Управляет одним глазом. Цель зрачка — позиция курсора,
-   * текущая позиция приближается с задержкой (lerp).
-   * Плюс случайный микро-«сбой» — зрачок прыгает не туда.
+   * Управляет одним 3D-глазом. Цель — угол поворота (yaw/pitch)
+   * к курсору. Текущие углы догоняют цель с лагом (lerp).
+   * Изредка — «сбой»: глаз крутится не туда.
    */
-  class Eye {
+  class Eye3D {
     constructor(opts) {
-      this.root   = opts.root;             // .eye
-      this.svg    = this.root.querySelector(".eye__svg");
-      this.iris   = this.root.querySelector(".eye__iris");
-      this.lerp   = opts.lerp;             // 0..1, выше = резче
-      this.maxR   = opts.maxR;             // макс. сдвиг зрачка (svg-units)
+      this.root  = opts.root;              // .eye3d
+      this.globe = this.root.querySelector(".eye3d__globe");
+      this.orbit = this.root.querySelector(".eye3d__orbit");
+      this.lerp  = opts.lerp;              // 0..1
+      this.maxDeg = opts.maxDeg;           // максимальный поворот в градусах
       this.glitchChance = opts.glitchChance;
-      this.tx = 0; this.ty = 0;            // целевой сдвиг
-      this.x  = 0; this.y  = 0;            // текущий сдвиг
-      this.glitchOffset = { x: 0, y: 0 };
-      this.glitchUntil  = 0;
+      this.tYaw = 0; this.tPitch = 0;      // целевые углы
+      this.yaw  = 0; this.pitch  = 0;      // текущие
+      this.glitchYaw = 0; this.glitchPitch = 0;
+      this.glitchUntil = 0;
       this.rect = null;
-      this.scale = 1;
       this.measure();
     }
     measure() {
-      if (!this.svg) return;
-      this.rect  = this.svg.getBoundingClientRect();
-      this.scale = this.rect.width / 220;  // viewBox 220
+      if (!this.globe) return;
+      this.rect = this.globe.getBoundingClientRect();
     }
     lookAt(cx, cy) {
       if (!this.rect) this.measure();
       if (!this.rect) return;
-      /* центр глаза в координатах окна (центр sclera 110,110) */
-      const ex = this.rect.left + 110 * this.scale;
-      const ey = this.rect.top  + 110 * this.scale;
+      const ex = this.rect.left + this.rect.width  / 2;
+      const ey = this.rect.top  + this.rect.height / 2;
       const dx = cx - ex, dy = cy - ey;
       const d  = Math.hypot(dx, dy) || 1;
-      const k  = Math.min(1, d / 320);
-      this.tx = (dx / d) * this.maxR * k;
-      this.ty = (dy / d) * this.maxR * k;
+      /* k: насколько близко курсор, тем меньше поворот (≈0 на самом глазу, 1 далеко) */
+      const k  = Math.min(1, d / 360);
+      this.tYaw   =  (dx / d) * this.maxDeg * k;
+      this.tPitch = -(dy / d) * this.maxDeg * k;
     }
     maybeGlitch() {
       const now = performance.now();
       if (now < this.glitchUntil) return;
       if (Math.random() < this.glitchChance) {
-        /* вспышка-промах: зрачок улетает в случайную сторону */
-        this.glitchOffset.x = randInt(-this.maxR, this.maxR);
-        this.glitchOffset.y = randInt(-this.maxR, this.maxR);
-        this.glitchUntil = now + randInt(80, 200);
+        this.glitchYaw   = randInt(-this.maxDeg, this.maxDeg);
+        this.glitchPitch = randInt(-this.maxDeg, this.maxDeg);
+        this.glitchUntil = now + randInt(90, 220);
         this.root.classList.add("is-glitching");
-        setTimeout(() => this.root.classList.remove("is-glitching"), 220);
+        setTimeout(() => this.root.classList.remove("is-glitching"), 240);
       } else {
-        this.glitchOffset.x = 0;
-        this.glitchOffset.y = 0;
+        this.glitchYaw = 0;
+        this.glitchPitch = 0;
       }
     }
     tick() {
-      /* лаговое приближение */
-      this.x += (this.tx - this.x) * this.lerp;
-      this.y += (this.ty - this.y) * this.lerp;
-      const ox = this.x + this.glitchOffset.x;
-      const oy = this.y + this.glitchOffset.y;
-      if (this.iris) {
-        this.iris.setAttribute(
-          "transform",
-          `translate(${ox.toFixed(2)} ${oy.toFixed(2)})`
-        );
+      this.yaw   += (this.tYaw   - this.yaw)   * this.lerp;
+      this.pitch += (this.tPitch - this.pitch) * this.lerp;
+      const y = this.yaw   + this.glitchYaw;
+      const p = this.pitch + this.glitchPitch;
+      if (this.orbit) {
+        this.orbit.style.transform =
+          `translate(-50%, -50%) rotateY(${y.toFixed(2)}deg) rotateX(${p.toFixed(2)}deg)`;
       }
+    }
+    blink() {
+      this.root.classList.add("is-blinking");
+      setTimeout(() => this.root.classList.remove("is-blinking"), 240);
     }
   }
 
   let eyes = [];
   if (eyesRoot) {
-    const blueEye = new Eye({
-      root: eyesRoot.querySelector(".eye--blue"),
-      lerp: 0.06,            // плавный, "задумчивый"
-      maxR: 22,
-      glitchChance: 0.015,
-    });
-    const redEye = new Eye({
-      root: eyesRoot.querySelector(".eye--red"),
-      lerp: 0.22,            // резкий, дёрганый
-      maxR: 26,
+    const redEye = new Eye3D({
+      root: eyesRoot.querySelector(".eye3d--red"),
+      lerp: 0.25,             // резкий, дёрганый
+      maxDeg: 42,
       glitchChance: 0.035,
     });
-    eyes = [blueEye, redEye];
+    const whiteEye = new Eye3D({
+      root: eyesRoot.querySelector(".eye3d--white"),
+      lerp: 0.08,             // плавный, «задумчивый»
+      maxDeg: 38,
+      glitchChance: 0.018,
+    });
+    eyes = [redEye, whiteEye].filter(e => e.root);
 
     const onResize = () => eyes.forEach((e) => e.measure());
     addEventListener("resize", onResize);
     addEventListener("scroll", onResize, { passive: true });
 
-    /* основной курсорный канал */
     let lastSpeed = 0, lx = 0, ly = 0, lt = 0;
     document.addEventListener("mousemove", (e) => {
       const now = performance.now();
       const dt  = Math.max(1, now - lt);
-      const sp  = Math.hypot(e.clientX - lx, e.clientY - ly) / dt;
-      lx = e.clientX; ly = e.clientY; lt = now; lastSpeed = sp;
+      lastSpeed = Math.hypot(e.clientX - lx, e.clientY - ly) / dt;
+      lx = e.clientX; ly = e.clientY; lt = now;
       eyes.forEach((eye) => eye.lookAt(e.clientX, e.clientY));
     }, { passive: true });
 
-    /* на тач-устройствах глаза «бродят» сами */
+    /* на тач-устройствах — глаза сами «бродят» */
     if (matchMedia("(pointer: coarse)").matches) {
       const wander = () => {
         const fx = randInt(0, innerWidth), fy = randInt(0, innerHeight);
@@ -238,14 +260,20 @@
       wander();
     }
 
-    /* основной цикл анимации глаз */
+    /* редкие совместные моргания */
+    const blinkLoop = () => {
+      eyes.forEach((eye) => eye.blink());
+      setTimeout(blinkLoop, randInt(3500, 7500));
+    };
+    setTimeout(blinkLoop, 4000);
+
+    /* основной цикл */
     function loop() {
       eyes.forEach((eye) => { eye.maybeGlitch(); eye.tick(); });
-      /* при быстром движении — оба глаза «вздрагивают» */
       if (lastSpeed > 2.4) {
         eyes.forEach((eye) => {
-          eye.glitchOffset.x = randInt(-eye.maxR, eye.maxR);
-          eye.glitchOffset.y = randInt(-eye.maxR, eye.maxR);
+          eye.glitchYaw   = randInt(-eye.maxDeg, eye.maxDeg);
+          eye.glitchPitch = randInt(-eye.maxDeg, eye.maxDeg);
           eye.glitchUntil = performance.now() + 180;
           eye.root.classList.add("is-glitching");
           setTimeout(() => eye.root.classList.remove("is-glitching"), 200);
@@ -348,18 +376,22 @@
       corruption.bump(1);
       fireGlobalGlitch();
       shakeStage();
-      /* алерты — нарастающее давление */
+      /* подтверждение действия на сайте — вместо нативного alert.
+         Chyron (строка субтитров) в стиле ТЦЦ, с нарастающим давлением. */
       const lines = [
-        "ОТСЮДА НЕТ ВЫХОДА.",
-        "ТЫ ПРОСТО ЗРИТЕЛЬ.",
-        "КЕЙН ВИДЕЛ ТЕБЯ.",
-        "ПОДВАЛ ЗАПОМНИЛ ТВОЁ ИМЯ.",
-        "ТЫ ВЫЧИСЛЕН. ПРОДОЛЖАЙ.",
-        "ПОСЛЕДНИЙ КАДР…",
+        "ПОПАДАНИЕ // ДВЕРЬ НИКУДА НЕ ВЕДЁТ.",
+        "ВТОРОЙ РАЗ // КЕЙН УЖЕ ОБЕРНУЛСЯ.",
+        "ТРЕТИЙ // ТЫ ЕЩЁ ДУМАЕШЬ, ЧТО ИГРАЕШЬ.",
+        "ЧЕТВЁРТЫЙ // ПОДВАЛ СЛЫШИТ ТЕБЯ.",
+        "ПЯТЫЙ // РУКА УЖЕ НА РЫЧАГЕ ABSTRACTION.",
+        "ПОСЛЕДНИЙ КАДР // ABSTRACTED.",
       ];
       const msg = lines[Math.min(hits - 1, lines.length - 1)];
-      /* setTimeout, чтобы не блокировать визуальный эффект */
-      setTimeout(() => alert(msg), 60);
+      chyron(msg);
+      /* конфетти из точки клика — приятная «награда» за попадание */
+      spawnConfetti(e.clientX, e.clientY, 18 + hits * 4);
+      /* «штамп» поверх кнопки: CAUGHT x<hits> — подтверждение на месте */
+      stampCaught(exitBtn, hits);
 
       if (hits >= 6) {
         setPhase("broken", 60_000);
@@ -368,6 +400,81 @@
         setPhase("running", 600);
       }
     });
+  }
+
+  /* =========================================================
+     CHYRON — in-page подпись вместо alert()
+     ========================================================= */
+  const chyronEl  = $("#chyron");
+  const chyronTxt = $("#chyronText");
+  let chyronTimer = 0, chyronInt = 0;
+  function chyron(text, hold = 2600) {
+    if (!chyronEl || !chyronTxt) return;
+    clearTimeout(chyronTimer); clearInterval(chyronInt);
+    chyronTxt.textContent = "";
+    chyronEl.classList.add("is-on");
+    chyronEl.setAttribute("aria-hidden", "false");
+    /* эффект печатающейся машинки */
+    let i = 0;
+    chyronInt = setInterval(() => {
+      chyronTxt.textContent += text.charAt(i++);
+      if (i >= text.length) clearInterval(chyronInt);
+    }, 28);
+    chyronTimer = setTimeout(() => {
+      chyronEl.classList.remove("is-on");
+      chyronEl.setAttribute("aria-hidden", "true");
+    }, hold + text.length * 30);
+  }
+
+  /* =========================================================
+     КОНФЕТТИ — красно-белые полоски из точки клика
+     ========================================================= */
+  const fxLayer = $("#fx");
+  const CONFETTO_KINDS = ["", "confetto--white", "confetto--yellow", "confetto--stripe"];
+  function spawnConfetti(x, y, count = 20) {
+    if (!fxLayer || reduceMotion) return;
+    for (let i = 0; i < count; i++) {
+      const c = document.createElement("span");
+      c.className = "confetto " + CONFETTO_KINDS[randInt(0, CONFETTO_KINDS.length - 1)];
+      c.style.left = x + "px";
+      c.style.top  = y + "px";
+      c.style.setProperty("--dx",  (randInt(-220, 220)) + "px");
+      c.style.setProperty("--dy",  (randInt( 120, 320)) + "px");
+      c.style.setProperty("--rot", (randInt(-720, 720)) + "deg");
+      c.style.animationDuration = (900 + Math.random() * 900) + "ms";
+      fxLayer.appendChild(c);
+      setTimeout(() => c.remove(), 2000);
+    }
+  }
+
+  /* «штамп» поверх кнопки — видимое подтверждение действия */
+  function stampCaught(btn, n) {
+    if (!btn) return;
+    const stamp = document.createElement("span");
+    stamp.textContent = `CAUGHT ×${n}`;
+    Object.assign(stamp.style, {
+      position: "fixed",
+      left: (btn.getBoundingClientRect().left + btn.offsetWidth / 2) + "px",
+      top:  (btn.getBoundingClientRect().top  - 12) + "px",
+      transform: "translate(-50%, -100%) rotate(-8deg)",
+      color: "#fff",
+      background: "#ff1f3d",
+      border: "2px solid #000",
+      boxShadow: "4px 4px 0 #000",
+      padding: "4px 10px",
+      font: '700 14px "VT323", monospace',
+      letterSpacing: ".1em",
+      pointerEvents: "none",
+      zIndex: 120,
+      opacity: "1",
+      transition: "transform .6s ease, opacity .6s ease",
+    });
+    document.body.appendChild(stamp);
+    requestAnimationFrame(() => {
+      stamp.style.transform = "translate(-50%, -160%) rotate(-8deg) scale(1.15)";
+      stamp.style.opacity = "0";
+    });
+    setTimeout(() => stamp.remove(), 700);
   }
 
   /* =========================================================
@@ -395,10 +502,109 @@
 
   document.addEventListener("click", (e) => {
     const t = e.target.closest(
-      "button, a, .card, .glitch-title, .eye, [data-glitchable]"
+      "button, a, .card, .glitch-title, .eye3d, [data-glitchable]"
     );
     if (t) fireGlobalGlitch();
   });
+
+  /* =========================================================
+     СЛЕД КУРСОРА — розовые огоньки за мышью
+     ========================================================= */
+  if (fxLayer && !reduceMotion) {
+    let lastTrail = 0;
+    document.addEventListener("mousemove", (e) => {
+      const now = performance.now();
+      if (now - lastTrail < 45) return;
+      lastTrail = now;
+      const dot = document.createElement("span");
+      dot.className = "cursor-trail";
+      dot.style.left = (e.clientX - 5) + "px";
+      dot.style.top  = (e.clientY - 5) + "px";
+      /* цвет зависит от «коррупции» — от неоново-розового к кровавому */
+      const hue = 320 - corruption.level * 20;
+      dot.style.background = `radial-gradient(circle, hsl(${hue} 100% 60%), transparent 70%)`;
+      fxLayer.appendChild(dot);
+      setTimeout(() => dot.remove(), 600);
+    }, { passive: true });
+  }
+
+  /* =========================================================
+     КЛИК ПО ЗАГОЛОВКУ — буквы отваливаются и падают
+     ========================================================= */
+  if (titleEl) {
+    /* разбить заголовок на span-ы по буквам, чтобы можно было кликать */
+    const originalTitle = (titleEl.dataset.text || titleEl.textContent).trim();
+    titleEl.dataset.text = originalTitle;
+    titleEl.textContent = "";
+    originalTitle.split("").forEach((ch) => {
+      const span = document.createElement("span");
+      span.className = "glitch-title__ch";
+      span.textContent = ch;
+      if (ch !== " ") span.style.cursor = "pointer";
+      titleEl.appendChild(span);
+    });
+    titleEl.addEventListener("click", (e) => {
+      const span = e.target.closest(".glitch-title__ch");
+      if (!span) return;
+      const ch = span.dataset.ch || span.textContent;
+      if (!ch.trim() || span.classList.contains("is-gone")) return;
+      const r = span.getBoundingClientRect();
+      const drop = document.createElement("span");
+      drop.className = "letter-drop";
+      drop.textContent = ch;
+      drop.style.left = r.left + "px";
+      drop.style.top  = r.top  + "px";
+      drop.style.fontSize = getComputedStyle(titleEl).fontSize;
+      drop.style.setProperty("--dx",  randInt(-40, 40) + "px");
+      drop.style.setProperty("--rot", randInt(-720, 720) + "deg");
+      document.body.appendChild(drop);
+      span.classList.add("is-gone");
+      span.style.visibility = "hidden";
+      setTimeout(() => drop.remove(), 1700);
+      /* буква возвращается сама через ~3с — сайт «восстанавливает» себя */
+      setTimeout(() => { span.style.visibility = ""; span.classList.remove("is-gone"); }, 3000);
+      spawnConfetti(r.left + r.width / 2, r.top + r.height / 2, 10);
+    });
+  }
+
+  /* =========================================================
+     ПАСХАЛКА: набери "pomni" на клавиатуре — появится мини-Помни
+     ========================================================= */
+  const pomniPet    = $("#pomniPet");
+  const pomniBubble = $("#pomniBubble");
+  const POMNI_PHRASES = [
+    "Добро пожаловать в цирк!",
+    "Ты здесь уже был?",
+    "Кейн тебя видит.",
+    "Лестница НЕ ведёт наверх.",
+    "Не смотри в красный глаз…",
+    "Я не настоящая.",
+  ];
+  let typed = "";
+  addEventListener("keydown", (e) => {
+    if (e.key.length !== 1) return;
+    typed = (typed + e.key.toLowerCase()).slice(-12);
+    if (typed.endsWith("pomni") && pomniPet) {
+      showPomniPet();
+    }
+  });
+  let pomniTimer = 0;
+  function showPomniPet() {
+    if (!pomniPet) return;
+    clearTimeout(pomniTimer);
+    pomniPet.style.left = randInt(20, innerWidth  - 140) + "px";
+    pomniPet.style.top  = randInt(80, innerHeight - 180) + "px";
+    if (pomniBubble) {
+      pomniBubble.textContent = POMNI_PHRASES[randInt(0, POMNI_PHRASES.length - 1)];
+    }
+    pomniPet.classList.add("is-on");
+    pomniPet.setAttribute("aria-hidden", "false");
+    chyron("// POMNI ONLINE //", 1800);
+    pomniTimer = setTimeout(() => {
+      pomniPet.classList.remove("is-on");
+      pomniPet.setAttribute("aria-hidden", "true");
+    }, 4500);
+  }
 
   /* =========================================================
      БОНУСЫ
