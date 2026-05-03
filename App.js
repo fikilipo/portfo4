@@ -230,7 +230,7 @@
       glitchChance: 0.035,
     });
     const whiteEye = new Eye3D({
-      root: eyesRoot.querySelector(".eye3d--white"),
+      root: eyesRoot.querySelector(".eye3d--blue"),
       lerp: 0.08,             // плавный, «задумчивый»
       maxDeg: 38,
       glitchChance: 0.018,
